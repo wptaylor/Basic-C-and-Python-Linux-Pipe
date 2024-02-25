@@ -54,11 +54,7 @@ void parent_branch(void) {
 
 // Python prototype.
 void python_child(int fds[2]) {
-  // Map stdout to the pipe's input.
-  // check(dup2(fds[1], STDOUT_FILENO), "dup2");
-  // close(fds[1]);
-
-  // Call Python script with no arguments.
+  // Call Python script with a single argument for the write file descriptor.
   char fd_out[6];
   sprintf(fd_out, "%d", fds[1]); // Convert fds[0] to char array.
   char *exec_argv[] = {"python_program.py", fd_out, NULL};
@@ -68,6 +64,7 @@ void python_child(int fds[2]) {
 
 // C prototype. Could also have an exec call here.
 void c_child(int fds[2]) {
+  // Call C program with a single argument for the read file descriptor.
   char fd_in[6];
   sprintf(fd_in, "%d", fds[0]); // Convert fds[0] to char array.
   char *exec_argv[] = {"c_program", fd_in, NULL};
@@ -76,8 +73,9 @@ void c_child(int fds[2]) {
 }
 
 int main(void) {
-  register_signal(SIGCHLD);
   printf("Start of Program.\n");
+
+  register_signal(SIGCHLD);
 
   int fds[2];
   check(pipe(fds), "pipe");
