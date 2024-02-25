@@ -56,21 +56,23 @@ void parent_branch(void) {
 }
 
 // Python prototype.
-void python_child(int fds[2]) {
-  // Call Python script with a single argument for the write file descriptor.
-  char fd_out[6];
-  sprintf(fd_out, "%d", fds[1]); // Convert fds[1] to char array.
-  char *exec_argv[] = {"python_program.py", fd_out, NULL};
+void python_child(int read_fd, int write_fd) {
+  char read_fd_arg[6];
+  char write_fd_arg[6];
+  sprintf(read_fd_arg, "%d", read_fd);
+  sprintf(write_fd_arg, "%d", write_fd);
+  char *exec_argv[] = {"python_program.py", read_fd_arg, write_fd_arg, NULL};
   char *exec_envp[] = {NULL};
   check(execve("src/python_program.py", exec_argv, exec_envp), "execve python");
 }
 
 // C prototype.
-void c_child(int fds[2]) {
-  // Call C program with a single argument for the read file descriptor.
-  char fd_in[6];
-  sprintf(fd_in, "%d", fds[0]); // Convert fds[0] to char array.
-  char *exec_argv[] = {"c_program", fd_in, NULL};
+void c_child(int read_fd, int write_fd) {
+  char read_fd_arg[6];
+  char write_fd_arg[6];
+  sprintf(read_fd_arg, "%d", read_fd);
+  sprintf(write_fd_arg, "%d", write_fd);
+  char *exec_argv[] = {"c_program", read_fd_arg, write_fd_arg, NULL};
   char *exec_envp[] = {NULL};
   check(execve("build/c_program", exec_argv, exec_envp), "execve c");
 }
@@ -80,8 +82,10 @@ int main(void) {
 
   register_signal(SIGCHLD);
 
-  int fds[2];
-  check(pipe(fds), "pipe");
+  int fds_python_to_c[2];
+  int fds_c_to_python[2];
+  check(pipe(fds_python_to_c), "pipe p->c");
+  check(pipe(fds_c_to_python), "pipe c->p");
 
   pid_t fork_pid = fork();
   check(fork_pid, "fork 1");
@@ -90,12 +94,12 @@ int main(void) {
     fork_pid = fork();
     check(fork_pid, "fork 2");
   } else {
-    python_child(fds);
+    python_child(fds_c_to_python[0], fds_python_to_c[1]);
   }
   if (fork_pid > 0) {
     c_pid = fork_pid;
     parent_branch();
   } else {
-    c_child(fds);
+    c_child(fds_python_to_c[0], fds_c_to_python[1]);
   }
 }
