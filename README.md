@@ -1,3 +1,3 @@
 # Basic-C-and-Python-Linux-Pipe
 
-Creates a single unnamed pipe from a prototype Python to prototype C program.
+Creates a two unnamed pipes to communicate between a prototype Python program and a prototype C program.
