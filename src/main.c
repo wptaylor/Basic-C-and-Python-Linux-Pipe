@@ -26,6 +26,7 @@ void parent_branch(int fds[2], pid_t child_pid) {
 
   int status;
   waitpid(child_pid, &status, 0);
+  close(fds[0]);
   printf("Python terminated with status code %d.\n", status);
   exit(status);
 }
