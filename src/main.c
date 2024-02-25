@@ -8,6 +8,8 @@
 #include <sys/wait.h>
 #include <unistd.h>
 
+static pid_t python_pid, c_pid;
+
 // Error handler.
 void check(int ret, const char *message) {
   if (ret != -1) {
@@ -18,12 +20,20 @@ void check(int ret, const char *message) {
   exit(error);
 }
 
+// Signal handler.
 void handle_signal(__attribute__((unused)) int signum) {
   int wstatus;
-  waitpid(-1, &wstatus, WNOHANG);
-  printf("Python terminated with status code %d.\n", wstatus);
+  pid_t child_pid = waitpid(-1, &wstatus, WNOHANG);
+  if (child_pid == python_pid) {
+    printf("Python terminated with status %d\n", wstatus);
+  } else if (child_pid == c_pid) {
+    printf("C terminated with status code %d.\n", wstatus);
+  } else {
+    printf("PID error.\n");
+  }
 }
 
+// Setup signal handler.
 void register_signal(int signum) {
   struct sigaction new_action = {0};
   sigemptyset(&new_action.sa_mask);
@@ -31,28 +41,35 @@ void register_signal(int signum) {
   check(sigaction(signum, &new_action, NULL), "sigaction");
 }
 
-// C-code prototype.
-void parent_branch(int fds[2]) {
-  char buffer[4096];
-  int bytes_read = read(fds[0], buffer, sizeof(buffer));
-  check(bytes_read, "read");
-  printf("Message from Python: %.*s\n", bytes_read, buffer);
-
-  pause();
-  close(fds[0]);
+// Manages children.
+void parent_branch(void) {
+  pause(); // Waits for first child.
+  pause(); // Waits for second child.
   printf("Exiting parent.\n");
   exit(errno);
 }
 
 // Python prototype.
-void child_branch(int fds[2]) {
+void python_child(int fds[2]) {
   // Map stdout to the pipe's input.
-  dup2(fds[1], STDOUT_FILENO);
+  check(dup2(fds[1], STDOUT_FILENO), "dup2");
   close(fds[1]);
 
   // Call Python script with no arguments.
   char *exec_arg = {NULL};
   execlp("src/main.py", exec_arg); // Alternatively: system("src/main.py")
+}
+
+// C prototype. Could also have an exec call here.
+void c_child(int fds[2]) {
+  char buffer[4096];
+
+  check(dup2(fds[0], STDIN_FILENO), "dup2");
+  close(fds[0]);
+
+  int bytes_read = read(STDIN_FILENO, buffer, sizeof(buffer));
+  check(bytes_read, "read");
+  printf("Message from Python: %.*s\n", bytes_read, buffer);
 }
 
 int main(void) {
@@ -63,10 +80,18 @@ int main(void) {
   check(pipe(fds), "pipe");
 
   pid_t fork_pid = fork();
-  check(fork_pid, "fork");
+  check(fork_pid, "fork 1");
   if (fork_pid > 0) {
-    parent_branch(fds);
+    python_pid = fork_pid;
+    fork_pid = fork();
+    check(fork_pid, "fork 2");
   } else {
-    child_branch(fds);
+    python_child(fds);
+  }
+  if (fork_pid > 0) {
+    c_pid = fork_pid;
+    parent_branch();
+  } else {
+    c_child(fds);
   }
 }
