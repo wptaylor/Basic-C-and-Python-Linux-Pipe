@@ -14,5 +14,5 @@ executable(
 
 executable(
   'pipe_test',
-  'src/main.c',
+  ['src/main.c', 'src/pipe_test.h']
 )

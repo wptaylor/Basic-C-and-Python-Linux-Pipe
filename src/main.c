@@ -3,47 +3,36 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/types.h>
 #include <sys/wait.h>
 #include <unistd.h>
 
-static pid_t python_pid, c_pid;
+#include "pipe_test.h"
 
-// Error handler.
-void check(int ret, const char *message) {
-  if (ret != -1) {
-    return;
-  }
-  perror(message);
-  exit(errno);
-}
+int main(void) {
+  printf("Start of Program.\n");
 
-// Signal handler.
-void handle_signal(__attribute__((unused)) int signum) {
-  int wstatus;
-  pid_t child_pid = waitpid(-1, &wstatus, WNOHANG);
-  if (wstatus == 0) {
-    return;
-  }
-  if (child_pid == python_pid) {
-    fprintf(stderr, "Python terminated with status code %d.\n", wstatus);
-    exit(errno);
-  } else if (child_pid == c_pid) {
-    fprintf(stderr, "C terminated with status code %d.\n", wstatus);
-    exit(errno);
+  register_signal(SIGCHLD);
+
+  int fds_python_to_c[2];
+  int fds_c_to_python[2];
+  check(pipe(fds_python_to_c), "pipe p->c");
+  check(pipe(fds_c_to_python), "pipe c->p");
+
+  pid_t fork_pid = fork();
+  check(fork_pid, "fork 1");
+  if (fork_pid > 0) {
+    python_pid = fork_pid;
+    fork_pid = fork();
+    check(fork_pid, "fork 2");
   } else {
-    fprintf(stderr, "Unknown program terminated with status code %d.\n",
-            wstatus);
-    exit(errno);
+    python_child(fds_c_to_python[0], fds_python_to_c[1]);
   }
-}
-
-// Setup signal handler.
-void register_signal(int signum) {
-  struct sigaction new_action = {0};
-  sigemptyset(&new_action.sa_mask);
-  new_action.sa_handler = handle_signal;
-  check(sigaction(signum, &new_action, NULL), "sigaction");
+  if (fork_pid > 0) {
+    c_pid = fork_pid;
+    parent_branch();
+  } else {
+    c_child(fds_python_to_c[0], fds_c_to_python[1]);
+  }
 }
 
 // Manages children.
@@ -76,29 +65,42 @@ void c_child(int read_fd, int write_fd) {
   check(execve("build/c_program", exec_argv, exec_envp), "execve c");
 }
 
-int main(void) {
-  printf("Start of Program.\n");
-
-  register_signal(SIGCHLD);
-
-  int fds_python_to_c[2];
-  int fds_c_to_python[2];
-  check(pipe(fds_python_to_c), "pipe p->c");
-  check(pipe(fds_c_to_python), "pipe c->p");
-
-  pid_t fork_pid = fork();
-  check(fork_pid, "fork 1");
-  if (fork_pid > 0) {
-    python_pid = fork_pid;
-    fork_pid = fork();
-    check(fork_pid, "fork 2");
-  } else {
-    python_child(fds_c_to_python[0], fds_python_to_c[1]);
+// Error handler.
+void check(int ret, const char *message) {
+  if (ret != -1) {
+    return;
   }
-  if (fork_pid > 0) {
-    c_pid = fork_pid;
-    parent_branch();
+  perror(message);
+  exit(errno);
+}
+
+void child_bad_exit_handler(int wstatus, pid_t child_pid) {
+  char *program_type;
+  if (child_pid == python_pid) {
+    program_type = "Python";
+  } else if (child_pid == c_pid) {
+    program_type = "C";
   } else {
-    c_child(fds_python_to_c[0], fds_c_to_python[1]);
+    program_type = "Unknown program";
   }
+  fprintf(stderr, "%s terminated with status code %d\n", program_type, wstatus);
+  exit(errno);
+}
+
+// Signal handler.
+void handle_signal(__attribute__((unused)) int signum) {
+  int wstatus;
+  pid_t child_pid = waitpid(-1, &wstatus, WNOHANG);
+  if (wstatus == 0) {
+    return;
+  }
+  child_bad_exit_handler(wstatus, child_pid);
+}
+
+// Setup signal handler.
+void register_signal(int signum) {
+  struct sigaction new_action = {0};
+  sigemptyset(&new_action.sa_mask);
+  new_action.sa_handler = handle_signal;
+  check(sigaction(signum, &new_action, NULL), "sigaction");
 }
