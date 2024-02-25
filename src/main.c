@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/types.h>
+#include <sys/wait.h>
 #include <unistd.h>
 
 // Error handler.
@@ -17,11 +18,16 @@ void check(int ret, const char *message) {
 }
 
 // C-code prototype.
-void parent_branch(int fds[2]) {
+void parent_branch(int fds[2], pid_t child_pid) {
   char buffer[4096];
   int bytes_read = read(fds[0], buffer, sizeof(buffer));
   check(bytes_read, "read");
   printf("Message from Python: %.*s\n", bytes_read, buffer);
+
+  int status;
+  waitpid(child_pid, &status, 0);
+  printf("Python terminated with status code %d.\n", status);
+  exit(status);
 }
 
 // Python prototype.
@@ -43,7 +49,7 @@ int main(void) {
   pid_t fork_pid = fork();
   check(fork_pid, "fork");
   if (fork_pid > 0) {
-    parent_branch(fds);
+    parent_branch(fds, fork_pid);
   } else {
     child_branch(fds);
   }
