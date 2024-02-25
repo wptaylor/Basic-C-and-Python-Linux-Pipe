@@ -34,6 +34,7 @@ void parent_branch(int fds[2], pid_t child_pid) {
 void child_branch(int fds[2]) {
   // Map stdout to the pipe's input.
   dup2(fds[1], STDOUT_FILENO);
+  close(fds[1]);
 
   // Call Python script with no arguments.
   char *exec_arg = {NULL};
