@@ -15,9 +15,8 @@ void check(int ret, const char *message) {
   if (ret != -1) {
     return;
   }
-  int error = errno;
   perror(message);
-  exit(error);
+  exit(errno);
 }
 
 // Signal handler.
@@ -28,11 +27,15 @@ void handle_signal(__attribute__((unused)) int signum) {
     return;
   }
   if (child_pid == python_pid) {
-    printf("Python terminated with status %d.\n", wstatus);
+    fprintf(stderr, "Python terminated with status code %d.\n", wstatus);
+    exit(errno);
   } else if (child_pid == c_pid) {
-    printf("C terminated with status code %d.\n", wstatus);
+    fprintf(stderr, "C terminated with status code %d.\n", wstatus);
+    exit(errno);
   } else {
-    printf("PID error. Program terminated with status code %d.\n", wstatus);
+    fprintf(stderr, "Unknown program terminated with status code %d.\n",
+            wstatus);
+    exit(errno);
   }
 }
 

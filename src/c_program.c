@@ -8,9 +8,8 @@ void check(int ret, const char *message) {
   if (ret != -1) {
     return;
   }
-  int error = errno;
   perror(message);
-  exit(error);
+  exit(errno);
 }
 
 int main(__attribute__((unused)) int argc, char *argv[]) {
