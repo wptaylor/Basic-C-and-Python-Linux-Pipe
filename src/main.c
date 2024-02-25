@@ -24,12 +24,15 @@ void check(int ret, const char *message) {
 void handle_signal(__attribute__((unused)) int signum) {
   int wstatus;
   pid_t child_pid = waitpid(-1, &wstatus, WNOHANG);
+  if (wstatus == 0) {
+    return;
+  }
   if (child_pid == python_pid) {
     printf("Python terminated with status %d.\n", wstatus);
   } else if (child_pid == c_pid) {
     printf("C terminated with status code %d.\n", wstatus);
   } else {
-    printf("PID error.\n");
+    printf("PID error. Program terminated with status code %d.\n", wstatus);
   }
 }
 
@@ -45,18 +48,20 @@ void register_signal(int signum) {
 void parent_branch(void) {
   pause(); // Waits for first child.
   pause(); // Waits for second child.
-  printf("Exiting parent.\n");
+  printf("End of program.\n");
   exit(errno);
 }
 
 // Python prototype.
 void python_child(int fds[2]) {
   // Map stdout to the pipe's input.
-  check(dup2(fds[1], STDOUT_FILENO), "dup2");
-  close(fds[1]);
+  // check(dup2(fds[1], STDOUT_FILENO), "dup2");
+  // close(fds[1]);
 
   // Call Python script with no arguments.
-  char *exec_argv[] = {"python_program.py", NULL};
+  char fd_out[6];
+  sprintf(fd_out, "%d", fds[1]); // Convert fds[0] to char array.
+  char *exec_argv[] = {"python_program.py", fd_out, NULL};
   char *exec_envp[] = {NULL};
   check(execve("src/python_program.py", exec_argv, exec_envp), "execve python");
 }
@@ -64,8 +69,8 @@ void python_child(int fds[2]) {
 // C prototype. Could also have an exec call here.
 void c_child(int fds[2]) {
   char fd_in[6];
+  sprintf(fd_in, "%d", fds[0]); // Convert fds[0] to char array.
   char *exec_argv[] = {"c_program", fd_in, NULL};
-  sprintf(exec_argv[1], "%d", fds[0]); // Convert fds[0] to char array.
   char *exec_envp[] = {NULL};
   check(execve("build/c_program", exec_argv, exec_envp), "execve c");
 }

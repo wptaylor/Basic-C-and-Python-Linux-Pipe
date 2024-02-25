@@ -15,7 +15,9 @@ void check(int ret, const char *message) {
 
 int main(__attribute__((unused)) int argc, char *argv[]) {
   char buffer[4096];
-  int bytes_read = read(atoi(argv[1]), buffer, sizeof(buffer));
+  int fd = atoi(argv[1]);
+  int bytes_read = read(fd, buffer, sizeof(buffer));
   check(bytes_read, "read");
   printf("Message from Python: %.*s\n", bytes_read, buffer);
+  close(fd);
 }
