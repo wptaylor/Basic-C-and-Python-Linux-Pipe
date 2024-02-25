@@ -87,7 +87,7 @@ void child_bad_exit_handler(int wstatus, pid_t child_pid) {
   exit(errno);
 }
 
-// Signal handler.
+// Signal handler. Only used for preventing zombie children.
 void handle_signal(__attribute__((unused)) int signum) {
   int wstatus;
   pid_t child_pid = waitpid(-1, &wstatus, WNOHANG);
