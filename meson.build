@@ -8,6 +8,11 @@ add_global_arguments('-D_DEFAULT_SOURCE', language : 'c')
 include_directories('/usr/local/include')
 
 executable(
+  'c_program',
+  'src/c_program.c',
+)
+
+executable(
   'pipe_test',
   'src/main.c',
 )

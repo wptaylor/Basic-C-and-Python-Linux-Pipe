@@ -25,7 +25,7 @@ void handle_signal(__attribute__((unused)) int signum) {
   int wstatus;
   pid_t child_pid = waitpid(-1, &wstatus, WNOHANG);
   if (child_pid == python_pid) {
-    printf("Python terminated with status %d\n", wstatus);
+    printf("Python terminated with status %d.\n", wstatus);
   } else if (child_pid == c_pid) {
     printf("C terminated with status code %d.\n", wstatus);
   } else {
@@ -56,20 +56,18 @@ void python_child(int fds[2]) {
   close(fds[1]);
 
   // Call Python script with no arguments.
-  char *exec_arg = {NULL};
-  execlp("src/main.py", exec_arg); // Alternatively: system("src/main.py")
+  char *exec_argv[] = {"python_program.py", NULL};
+  char *exec_envp[] = {NULL};
+  check(execve("src/python_program.py", exec_argv, exec_envp), "execve python");
 }
 
 // C prototype. Could also have an exec call here.
 void c_child(int fds[2]) {
-  char buffer[4096];
-
-  check(dup2(fds[0], STDIN_FILENO), "dup2");
-  close(fds[0]);
-
-  int bytes_read = read(STDIN_FILENO, buffer, sizeof(buffer));
-  check(bytes_read, "read");
-  printf("Message from Python: %.*s\n", bytes_read, buffer);
+  char fd_in[6];
+  char *exec_argv[] = {"c_program", fd_in, NULL};
+  sprintf(exec_argv[1], "%d", fds[0]); // Convert fds[0] to char array.
+  char *exec_envp[] = {NULL};
+  check(execve("build/c_program", exec_argv, exec_envp), "execve c");
 }
 
 int main(void) {
