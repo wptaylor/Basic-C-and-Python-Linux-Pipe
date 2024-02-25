@@ -4,17 +4,29 @@ import time
 import sys
 import os
 
-time.sleep(0.1)
 
-#print("You called me with arguments:", sys.argv)
+def main():
+    #print("You called me with arguments:", sys.argv)
 
-read_fd = int(sys.argv[1])
-write_fd = int(sys.argv[2])
+    write_fd = int(sys.argv[2])
+    write_to_pipe(write_fd)
 
-with os.fdopen(write_fd,'w') as fdfile:
-    fdfile.write("I am a serpent.")
-    fdfile.close()
+    read_fd = int(sys.argv[1])
+    read_from_pipe(read_fd) # Blocking
 
-recieved_message = []
-recieved_message = os.read(read_fd, 4096)
-print("Message from C:", recieved_message.decode());
+
+def write_to_pipe(write_fd):
+    with os.fdopen(write_fd,'w') as fdfile:
+        fdfile.write("I am a serpent.")
+        fdfile.close()
+
+
+def read_from_pipe(read_fd):
+    recieved_message = []
+    recieved_message = os.read(read_fd, 4096)
+    print("Message from C:", recieved_message.decode());
+
+
+if __name__ == "__main__":
+    main()
+
