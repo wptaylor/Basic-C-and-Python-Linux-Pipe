@@ -56,13 +56,13 @@ void parent_branch(void) {
 void python_child(int fds[2]) {
   // Call Python script with a single argument for the write file descriptor.
   char fd_out[6];
-  sprintf(fd_out, "%d", fds[1]); // Convert fds[0] to char array.
+  sprintf(fd_out, "%d", fds[1]); // Convert fds[1] to char array.
   char *exec_argv[] = {"python_program.py", fd_out, NULL};
   char *exec_envp[] = {NULL};
   check(execve("src/python_program.py", exec_argv, exec_envp), "execve python");
 }
 
-// C prototype. Could also have an exec call here.
+// C prototype.
 void c_child(int fds[2]) {
   // Call C program with a single argument for the read file descriptor.
   char fd_in[6];
